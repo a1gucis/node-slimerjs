@@ -6,6 +6,7 @@ var exec            = require('child_process').exec;
 var path            = require('path');
 
 var POLL_INTERVAL   = process.env.POLL_INTERVAL || 500;
+var PRINT_CONSOLE_LOG = parseInt(process.env.PRINT_CONSOLE_LOG || "1");
 
 var queue = function (worker) {
     var _q = [];
@@ -116,22 +117,21 @@ exports.create = function (callback, options) {
         });
 
         // Wait for "Ready" line
-        slimer.stdout.once('data', function (data) {
 	    //console.log('bridge send: '+ data);
             // setup normal listener now
-            slimer.stdout.on('data', function (data) {
-                return console.log('slimer stdout: '+data);
-            });
-            
-            var matches = data.toString().match(/Ready \[(\d+)\]/);
-            if (!matches) {
-                slimer.kill();
-                return callback("Unexpected output from SlimerJS: " + data);
+        var callCb = true;
+        slimer.stdout.on('data', function (data) {
+            if (PRINT_CONSOLE_LOG) {
+                console.log('slimer stdout: '+data);
             }
-
-            var port = parseInt(matches[1], 0);
-            callback(null, slimer, port);
-            //callback(null, slimer, 62611);
+            if (callCb) {
+                var matches = data.toString().match(/Ready \[(\d+)\]/);
+                if (matches) {
+                    callCb = false;
+                    var port = parseInt(matches[1], 0);
+                    callback(null, slimer, port);
+                }
+            }
         });
 
         setTimeout(function () {    //wait a bit to see if the spawning of slimerjs immediately fails due to bad path or similar
